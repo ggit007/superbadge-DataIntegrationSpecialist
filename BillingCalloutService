@@ -1,0 +1,42 @@
+public class BillingCalloutService {
+    
+    public static void callBillingService(Id newRecId, Project__c[] oldRec){
+        
+        try{
+            soapCalloutFunction(newRecId, oldRec[0].Status__c);
+        }catch(Exception e){
+            e.getMessage();
+        }
+    }
+    @Future(callout=true)
+    public static void soapCalloutFunction(Id newId, string oldValue){
+        Project__c[] newList = [SELECT Id,Name,ProjectRef__c,Billable_Amount__c,Status__c FROM Project__c WHERE Id=:newId LIMIT 1];
+        //Project__c[] oldList = [SELECT Id,Name,ProjectRef__c,Billable_Amount__c,Status__c FROM Project__c WHERE Id=:oldId LIMIT 1];
+        try{
+        BillingServiceProxy.InvoicesPortSoap11 billClass = New BillingServiceProxy.InvoicesPortSoap11();
+        ServiceCredentials__c sc = ServiceCredentials__c.getValues('BillingServiceCredential');
+        BillingServiceProxy.project creds = New BillingServiceProxy.project();
+            creds.username = sc.Username__c;
+            creds.password = sc.Password__c;
+             
+    
+       
+        for(Project__c newProject : newList){
+            if(newProject.Status__c != oldValue && newProject.Status__c == 'Billable'){
+            
+                    creds.projectid = newProject.ProjectRef__c;
+                    creds.billAmount = newProject.Billable_Amount__c;
+                    String status = billClass.billProject(creds);
+                    System.debug('status @@@@@@ '+status);
+                    
+                    if(status == 'ok'){
+                        newProject.Status__c = 'Billed';
+                        update newProject;
+                    }    
+            }
+        }
+        }catch(Exception e){
+            e.getMessage();
+        }
+    }
+}
