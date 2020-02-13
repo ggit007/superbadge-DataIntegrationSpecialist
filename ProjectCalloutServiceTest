@@ -1,0 +1,75 @@
+@isTest
+private class ProjectCalloutServiceTest {
+  
+    @TestSetup
+    private static void testSetupMethod(){
+        
+     /*   ServiceTokens__c token = new ServiceTokens__c();
+            token.Name = 'ProjectServiceToken';
+            token.Token__c = 'TestToken';
+            insert token;  */
+        
+        Account acc = New Account();
+            acc.Name = 'Test Account';
+            acc.Type = 'Technology Partner';
+            Database.insert(acc);
+            
+        Opportunity opp = New Opportunity();
+            opp.Name = 'Test Opportunity';
+            opp.StageName = 'Prospecting';
+            opp.CloseDate = System.today() + 5;
+            opp.Type = 'New Project';
+            opp.Amount = 50000;
+            opp.AccountId = acc.id;
+            Database.insert(opp);
+    }
+    @isTest
+    static void positiveResponseTest(){
+      
+        ServiceTokens__c token = new ServiceTokens__c();
+            token.Name = 'ProjectServiceToken';
+            token.Token__c = 'TestToken';
+            insert token;
+        
+        Opportunity opp = [SELECT Id,Type,StageName,AccountId,Account.Name FROM Opportunity WHERE Type='New Project' LIMIT 1];          
+            opp.StageName = 'Closed Won';        
+        Test.startTest();
+        Test.setMock(HttpCalloutMock.class, new ProjectCalloutServiceMock());
+        Database.update(opp);
+        Test.stopTest();
+        
+        Opportunity oppty = [SELECT Id,StageName FROM Opportunity WHERE Name='Test Opportunity' LIMIT 1];
+        System.assertEquals(oppty.StageName,'Submitted Project');
+    }
+    @isTest
+    static void failedResponseTest(){
+        
+        ServiceTokens__c token1 = new ServiceTokens__c();
+            token1.Name = 'ProjectServiceToken';
+            token1.Token__c = 'TestToken';
+            insert token1;
+        
+        Opportunity opp1 = [SELECT Id,Type,StageName,AccountId,Account.Name FROM Opportunity WHERE Type='New Project' LIMIT 1];          
+            opp1.StageName = 'Closed Won';        
+        Test.startTest();
+        Test.setMock(HttpCalloutMock.class, new ProjectCalloutServiceMockFailure());
+        Database.update(opp1);
+        Test.stopTest();
+        
+        Opportunity oppty = [SELECT Id,StageName FROM Opportunity WHERE Name='Test Opportunity' LIMIT 1];
+        System.assertEquals(oppty.StageName,'Resubmit Project');
+    }
+    @isTest
+    static void doCalloutFunctionExceptionTest(){
+        
+        Opportunity opp = [SELECT Id,Type,StageName,AccountId,Account.Name FROM Opportunity WHERE Type='New Project' LIMIT 1];          
+            opp.StageName = 'Closed Won';        
+        Test.startTest();
+        Test.setMock(HttpCalloutMock.class, new ProjectCalloutServiceMock());
+        Database.update(opp);
+        Test.stopTest();
+        
+        Opportunity oppty = [SELECT Id,StageName FROM Opportunity WHERE Name='Test Opportunity' LIMIT 1];
+        System.assertNotEquals(oppty.StageName,'Submitted Project');
+    }
+}
