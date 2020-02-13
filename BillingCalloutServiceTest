@@ -1,0 +1,86 @@
+@isTest
+private class BillingCalloutServiceTest {
+  
+    @TestSetup
+    static void testDataSetup(){
+        
+        try{                               
+            Opportunity opp = New Opportunity(Name='Test Opp',
+                                             CloseDate = Date.today().addDays(10),
+                                             StageName='Prospecting');
+                Database.insert(opp);
+            
+            Project__c project = New Project__c();
+                project.Name = 'Project Test';
+                project.Status__c = 'Running';
+                project.Billable_Amount__c = 50000;
+                project.ProjectRef__c = '07f9cc8c-ac20-4323-8ff8-8db2c8eda59b';
+                project.Opportunity__c = opp.id;
+                Database.insert(project);
+                        
+        }catch(Exception e){
+            e.getMessage();
+        }
+    }
+    
+    @isTest
+    static void BillingCalloutServicePositiveTest() {
+        
+        ServiceCredentials__c sc = New ServiceCredentials__c();
+                sc.Name = 'BillingServiceCredential';
+                sc.Username__c = 'username';
+                sc.Password__c = 'password';
+            insert(sc);
+        
+        Project__c pr = [SELECT Id,Name,Status__c,Billable_Amount__c,ProjectRef__c FROM Project__c WHERE
+                         Name = 'Project Test' LIMIT 1];
+          pr.Status__c = 'Billable';
+        
+        Test.startTest();
+        // This causes a fake response to be generated
+        Test.setMock(WebServiceMock.class, new BillingCalloutServiceMock());
+        // Call the method that invokes a callout
+        Database.SaveResult sv = Database.update(pr);
+        Test.stopTest();
+        Project__c prj = [SELECT Id,Name,Status__c,Billable_Amount__c,ProjectRef__c FROM Project__c WHERE Id=:sv.getId() LIMIT 1];
+        System.assertEquals('Billed', prj.Status__c);
+    }
+    @isTest
+    static void BillingCalloutServiceNegetiveTest(){
+        
+        ServiceCredentials__c sc = New ServiceCredentials__c();
+                sc.Name = 'BillingServiceCredential';
+                sc.Username__c = 'username';
+                sc.Password__c = 'password';
+            insert(sc);
+        
+        Project__c pr = [SELECT Id,Name,Status__c,Billable_Amount__c,ProjectRef__c FROM Project__c WHERE
+                         Name = 'Project Test' LIMIT 1];
+          pr.Status__c = 'Billable';
+        
+        Test.startTest();
+        // This causes a fake response to be generated
+        Test.setMock(WebServiceMock.class, new BillingCalloutServiceMockFailure());
+        // Call the method that invokes a callout
+        Database.SaveResult sv = Database.update(pr);
+        Test.stopTest();
+        Project__c prj = [SELECT Id,Name,Status__c,Billable_Amount__c,ProjectRef__c FROM Project__c WHERE Id=:sv.getId() LIMIT 1];
+        System.assertEquals('Billable', prj.Status__c);
+    }
+    @isTest
+    static void BillingCalloutServiceExceptionTest(){
+        
+        Project__c pr = [SELECT Id,Name,Status__c,Billable_Amount__c,ProjectRef__c FROM Project__c WHERE
+                         Name ='Project Test'  LIMIT 1];
+          pr.Status__c = 'Billable';
+        
+        Test.startTest();
+        // This causes a fake response to be generated
+        Test.setMock(WebServiceMock.class, new BillingCalloutServiceMockFailure());
+        // Call the method that invokes a callout
+        Database.SaveResult sv = Database.update(pr);
+        Test.stopTest();
+        Project__c prj = [SELECT Id,Name,Status__c,Billable_Amount__c,ProjectRef__c FROM Project__c WHERE Id=:sv.getId() LIMIT 1];
+        System.assertEquals('Billable', prj.Status__c);
+    }
+}
