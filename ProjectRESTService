@@ -1,0 +1,40 @@
+@RestResource(urlMapping='/project/*')
+global with sharing class ProjectRESTService {
+    
+    @HttpPost
+    global static string postProjectData(String ProjectRef,
+                                            String ProjectName,
+                                            String OpportunityId,
+                                            Date StartDate,
+                                            Date EndDate,
+                                            Double Amount,
+                                            String Status){
+        //String opportunityId = request.requestURI.substring(request.requestURI.lastIndexOf('/')+1);
+        Savepoint save = Database.setSavepoint();
+        
+        try{
+        Project__c project = New Project__c();
+            project.Name = ProjectName;
+            project.ProjectRef__c = ProjectRef;
+            project.Opportunity__c = OpportunityId;
+            project.Start_Date__c = StartDate;
+            project.End_Date__c = EndDate;
+            project.Billable_Amount__c = Amount;
+            project.Status__c = Status;
+            
+            upsert project ProjectRef__c;
+            
+        Opportunity opp = New Opportunity();
+            opp.id = OpportunityId;
+            opp.DeliveryInstallationStatus__c = 'In progress';
+            
+            update opp;
+    
+        return 'OK';
+        }catch(Exception e){
+        
+            Database.rollback(save);
+            return e.getMessage();
+        }
+    }
+}
