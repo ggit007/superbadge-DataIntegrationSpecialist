@@ -1,0 +1,63 @@
+@isTest
+private class ProjectRESTServiceTest {
+      
+      @TestSetup
+      static void TestDataSetupMethod(){
+          
+          Account acc = New Account();
+              acc.Name = 'Test Account';
+              acc.Active__c = 'Yes';
+              acc.Type = 'Technology Partner';
+              
+              insert acc;
+              
+          Opportunity opp = New Opportunity();
+              opp.Name = 'Test Opportunity';
+              opp.StageName = 'Prospecting';
+              opp.CloseDate = System.today() + 5;
+              opp.Amount = 50000;
+              
+              insert opp;
+      }
+    @isTest
+      static void postProjectDataTest(){
+            RestRequest request = new RestRequest();
+            request.httpMethod = 'POST';
+            request.requestURI = '/services/apexrest/project';
+            
+            RestContext.request = request;
+          
+            Opportunity opp = [SELECT Id,Name FROM Opportunity LIMIT 1];
+            
+            Test.StartTest();
+            String output = ProjectRESTService.postProjectData('27474caa-b683-4671-b4c2-5a8c66a569e8',
+                                              'Wonderful Debt Project',
+                                              opp.Id,
+                                              Date.today(),
+                                              Date.today().addDays(5),
+                                              4500000,
+                                              'Running');
+            Test.StopTest();
+            System.assertEquals(output, 'OK');
+      }      
+      @isTest
+      static void postProjectDataExceptionTest(){
+      
+            RestRequest request = new RestRequest();
+            request.httpMethod = 'POST';
+            request.requestURI = '/services/apexrest/project';
+            
+            RestContext.request = request;                      
+            
+            Test.StartTest();
+            String output = ProjectRESTService.postProjectData('27474caa-b683-4671-b4c2-5a8c66a569e8',
+                                              'Wonderful Debt Project',
+                                              'jkkj 787',
+                                              Date.today(),
+                                              Date.today().addDays(5),
+                                              4500000,
+                                              'Running');
+            Test.StopTest();
+            System.assertNotEquals(output, 'OK');
+      }    
+}
