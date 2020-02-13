@@ -1,0 +1,81 @@
+public class ProjectCalloutService {
+
+    public static Opportunity opp {get;set;}    
+    
+    @InvocableMethod
+    public static void PostOpportunityToPMS(List<Id> opportunityIds){
+        
+        if(!opportunityIds.isEmpty()){
+            System.enqueueJob(new QueueablePMSCall(opportunityIds[0]));
+        }
+    }
+    
+    public class QueueablePMSCall implements System.Queueable, Database.AllowsCallouts{
+    
+        public Id opportunityId {get;set;}
+        
+        public QueueablePMSCall(Id oppId){    //Queueable class constructor
+            
+            this.opportunityId = oppId;
+        }
+        public void execute(System.QueueableContext context){    //Execute method of the schedular class
+            
+            try{
+                HttpResponse res = doCalloutFunction(opportunityId);
+                
+                if(res.getStatusCode() == 201){
+                    opp.StageName = 'Submitted Project';
+                    update opp;
+                }else if(res.getStatusCode() == 500){
+                    opp.StageName = 'Resubmit Project';
+                    update opp;
+                }
+            }catch(Exception e){
+                e.getMessage();
+            }
+        }
+    }
+    private static HttpResponse doCalloutFunction(Id oppaId){    //The main callout function
+        
+        HttpRequest req = New HttpRequest();
+        HttpResponse res = New HttpResponse();
+        
+        try{
+            ServiceTokens__c cs = ServiceTokens__c.getValues('ProjectServiceToken');
+                            
+                req.setEndPoint('callout:ProjectService');
+                req.setMethod('POST');
+                req.setHeader('Content-Type', 'application/json;charset=UTF-8');
+                req.setHeader('token',cs.Token__c);
+                req.setBody(jsonBodyFunction(oppaId));
+                        
+                res = New Http().send(req);
+                System.debug('Response @@@@@@ '+res);
+                System.debug('Body @@@@@@ '+res.getBody());            
+        }catch(Exception e){
+            e.getMessage();
+        }    
+            return res;
+    }
+    private static string jsonBodyFunction(Id oppbId){    //JSON Body maker method
+        
+        string jsonBody = '';
+        try{
+            opp = [SELECT Id,Name,Account.Name,Amount,closeDate,StageName FROM Opportunity WHERE Id=:oppbId LIMIT 1];
+            System.debug('Opportunity @@@@@@ ' +opp);
+            Map<String,Object> bodyMap = New Map<String,Object>();
+                bodyMap.put('opportunityId',opp.Id);
+                bodyMap.put('opportunityName',opp.Name);
+                bodyMap.put('accountName',opp.Account.Name);
+                bodyMap.put('closeDate',opp.closeDate);
+                bodyMap.put('amount',opp.Amount);
+                
+            jsonBody = JSON.serialize(bodyMap, True);
+            System.debug('JSON @@@@@@ '+jsonBody);
+        }catch(Exception e){
+            e.getMessage();
+        }
+        
+        return jsonBody;
+    }
+}
